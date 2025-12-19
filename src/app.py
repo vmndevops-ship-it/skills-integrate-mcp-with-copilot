@@ -6,6 +6,9 @@ for extracurricular activities at Mergington High School.
 """
 
 from fastapi import FastAPI, HTTPException
+from fastapi import Body
+import bcrypt
+import json
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -13,6 +16,28 @@ from pathlib import Path
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
+
+# Load teacher credentials from teachers.json
+TEACHERS_FILE = os.path.join(current_dir, "teachers.json")
+if os.path.exists(TEACHERS_FILE):
+    with open(TEACHERS_FILE, "r") as f:
+        teachers_db = json.load(f)["teachers"]
+else:
+    teachers_db = []
+# ...existing code...
+
+def verify_teacher_login(username: str, password: str) -> bool:
+    for teacher in teachers_db:
+        if teacher["username"] == username:
+            return bcrypt.checkpw(password.encode(), teacher["password_hash"].encode())
+    return False
+
+@app.post("/teacher/login")
+def teacher_login(username: str = Body(...), password: str = Body(...)):
+    """Authenticate teacher login using bcrypt-hashed password"""
+    if verify_teacher_login(username, password):
+        return {"message": "Login successful"}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
 
 # Mount the static files directory
 current_dir = Path(__file__).parent
